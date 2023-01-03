@@ -38,19 +38,16 @@
   ocas.width = canvas.width = window.innerWidth;
   ocas.height = canvas.height = 700;
   var bigbooms = [];
+  var stars = [];
+  let lastTime;
 
   window.onload = function () {
-    initAnimate()
-  }
-
-  function initAnimate() {
-    drawBg();
+    generateStars(50);
+    drawBg(); // init animate
 
     lastTime = new Date();
     animate();
   }
-
-  var lastTime;
 
   const raf = window.requestAnimationFrame
       || window.mozRequestAnimationFrame
@@ -61,7 +58,6 @@
       };
 
   function animate() {
-    let bigboom;
     ctx.save();
     ctx.fillStyle = "rgba(0,5,24,0.1)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -70,114 +66,113 @@
     const newTime = new Date();
     if (newTime - lastTime > 500 + (window.innerHeight - 767) / 2) {
 
-      if (randrange(0, 100) > 6) {
+      if (Math.random() > 0.06) {
         const x = randrange(canvas.width / 5, canvas.width * 4 / 5);
         const y = randrange(50, 200);
-        bigboom = new Boom(randrange(canvas.width / 3, canvas.width * 2 / 3), 2, "#FFF", {x: x, y: y});
+        Boom.create({x: x, y: y})
       } else {
-        bigboom = new Boom(randrange(canvas.width / 3, canvas.width * 2 / 3), 2, "#FFF", {
-          x: canvas.width / 2,
-          y: 200
-        }, document.querySelectorAll(".shape")[parseInt(randrange(0, document.querySelectorAll(".shape").length))]);
-
+        Boom.create({x: canvas.width / 2, y: 200}, rand_choice(document.querySelectorAll(".shape")))
       }
-      bigbooms.push(bigboom);
       lastTime = newTime;
-      console.log(bigbooms)
     }
 
-    stars.foreach(function () {
-      this.paint();
-    })
-
+    stars.forEach(star => star.paint());
     drawMoon();
 
-    bigbooms.foreach(function (index) {
-      var that = this;
-      if (!this.dead) {
-        this._move();
-        this._drawLight();
+    bigbooms.forEach(boom => {
+      if (!boom.dead) {
+        boom._move();
       } else {
-        this.booms.foreach(function (index) {
-          if (!this.dead) {
-            this.moveTo(index);
-          } else if (index === that.booms.length - 1) {
-            bigbooms[bigbooms.indexOf(that)] = null;
-          }
-        })
+        if (boom.frags.every(frag => frag.dead)) {
+          bigbooms[bigbooms.indexOf(boom)] = null;
+        } else {
+          boom.frags.forEach(frag => {
+            if (!frag.dead) {
+              frag.moveTo();
+            }
+          });
+        }
       }
+    });
+
+    bigbooms = bigbooms.filter(item => {
+      return item !== null; // remove null booms
     });
 
     raf(animate);
   }
 
   function drawMoon() {
-    var moon = document.getElementById("moon");
-    var centerX = canvas.width - 200, centerY = 100, width = 80;
+    const moon = document.getElementById("moon");
+    // (dx, dy) top left corner
+    const dx = canvas.width - 200, dy = 100;
+    const moon_width = 80;
     if (moon.complete) {
-      ctx.drawImage(moon, centerX, centerY, width, width)
+      ctx.drawImage(moon, dx, dy, moon_width, moon_width)
     } else {
       moon.onload = function () {
-        ctx.drawImage(moon, centerX, centerY, width, width)
+        ctx.drawImage(moon, dx, dy, moon_width, moon_width)
       }
     }
-    let index = 0;
+    // draw 10 moon shadow
     for (let i = 0; i < 10; i++) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX + width / 2, centerY + width / 2, width / 2 + index, 0, 2 * Math.PI);
+      let shadow_radius = moon_width / 2 + i * 2;
+      ctx.arc(dx + moon_width / 2, dy + moon_width / 2, shadow_radius, 0, 2 * Math.PI);
       ctx.fillStyle = "rgba(240,219,120,0.005)";
-      index += 2;
       ctx.fill();
       ctx.restore();
     }
-
   }
 
-  Array.prototype.foreach = function (callback) {
-    for (let i = 0; i < this.length; i++) {
-      if (this[i] !== null) callback.apply(this[i], [i])
+  canvas.addEventListener("click", function (event) {
+    const x = event.clientX;
+    const y = event.clientY;
+    Boom.create({x: x, y: y})
+    return true;
+  })
+
+  function rand_color() {
+    return {
+      r: randrange(128, 255),
+      g: randrange(128, 255),
+      b: randrange(128, 255)
     }
   }
 
+  class Boom {
+    static create(boomArea, shape = false) {
+      const created = new Boom(randrange(canvas.width / 3, canvas.width * 2 / 3), 2, "#FFF", boomArea, shape);
+      bigbooms.push(created);
+    }
 
-  canvas.onclick = function () {
-    var x = event.clientX;
-    var y = event.clientY;
-    var bigboom = new Boom(randrange(canvas.width / 3, canvas.width * 2 / 3), 2, "#FFF", {x: x, y: y});
-    bigbooms.push(bigboom)
-  }
+    constructor(x, r, c, boomArea, shape = false) {
+      this.frags = [];
+      this.x = x;
+      this.y = (canvas.height + r);
+      this.r = r;
+      this.c = c;
+      this.shape = shape;
+      this.boomArea = boomArea;
+      this.theta = 0;
+      this.dead = false;
+      this.ba = randrange(80, 200);
+    }
 
-  // canvas.addEventLisener("touchstart" , function(event){
-  // 	var touch = event.targetTouches[0];
-  // 	var x = event.pageX;
-  // 	var y = event.pageY;
-  // 	var bigboom = new Boom(randrange(canvas.width/3,canvas.width*2/3) ,2,"#FFF" , {x:x , y:y});
-  // 	bigbooms.push(bigboom)
-  // })
-
-  var Boom = function (x, r, c, boomArea, shape) {
-    this.booms = [];
-    this.x = x;
-    this.y = (canvas.height + r);
-    this.r = r;
-    this.c = c;
-    this.shape = shape || false;
-    this.boomArea = boomArea;
-    this.theta = 0;
-    this.dead = false;
-    this.ba = parseInt(randrange(80, 200));
-  }
-  Boom.prototype = {
-    _paint: function () {
+    _paint() {
       ctx.save();
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
       ctx.fillStyle = this.c;
+      // ctx.fillStyle = "rgba(255,0,0,1)";
       ctx.fill();
       ctx.restore();
-    },
-    _move: function () {
+
+      this._drawLight();
+    }
+
+    _move() {
       var dx = this.boomArea.x - this.x, dy = this.boomArea.y - this.y;
       this.x = this.x + dx * 0.01;
       this.y = this.y + dy * 0.01;
@@ -190,83 +185,87 @@
       } else {
         this._paint();
       }
-    },
-    _drawLight: function () {
+    }
+
+    _drawLight() {
       ctx.save();
-      ctx.fillStyle = "rgba(255,228,150,0.3)";
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.r + 3 * Math.random() + 1, 0, 2 * Math.PI);
+      ctx.fillStyle = "rgba(255,228,150,0.3)";
+      // ctx.fillStyle = this.c;
       ctx.fill();
       ctx.restore();
-    },
-    _boom: function () {
+    }
+
+    _boom() {
       var fragNum = randrange(30, 200);
-      var style = randrange(0, 10) >= 5 ? 1 : 2;
-      var color;
+      const style = Math.random() >= 0.5 ? 1 : 2;
+      let color;
       if (style === 1) {
-        color = {
-          a: parseInt(randrange(128, 255)),
-          b: parseInt(randrange(128, 255)),
-          c: parseInt(randrange(128, 255))
-        }
+        color = rand_color();
       }
 
-      var fanwei = parseInt(randrange(300, 400));
-      for (var i = 0; i < fragNum; i++) {
+      const explode_range = randrange(300, 400);
+      for (let i = 0; i < fragNum; i++) {
         if (style === 2) {
-          color = {
-            a: parseInt(randrange(128, 255)),
-            b: parseInt(randrange(128, 255)),
-            c: parseInt(randrange(128, 255))
-          }
+          color = rand_color();
         }
-        var a = randrange(-Math.PI, Math.PI);
-        var x = randrange(0, fanwei) * Math.cos(a) + this.x;
-        var y = randrange(0, fanwei) * Math.sin(a) + this.y;
-        var radius = randrange(0, 2)
-        var frag = new Frag(this.x, this.y, radius, color, x, y);
-        this.booms.push(frag);
+        const theta = uniform(-Math.PI, Math.PI);
+        const x = uniform(0, explode_range) * Math.cos(theta) + this.x;
+        const y = uniform(0, explode_range) * Math.sin(theta) + this.y;
+        const radius = uniform(0, 2);
+        const frag = new Frag(this.x, this.y, radius, color, x, y);
+        this.frags.push(frag);
       }
-    },
-    _shapBoom: function () {
-      var that = this;
-      putValue(ocas, octx, this.shape, 5, function (dots) {
-        var dx = canvas.width / 2 - that.x;
-        var dy = canvas.height / 2 - that.y;
-        var color;
-        for (var i = 0; i < dots.length; i++) {
-          color = {a: dots[i].a, b: dots[i].b, c: dots[i].c}
-          var x = dots[i].x;
-          var y = dots[i].y;
-          var radius = 1;
-          var frag = new Frag(that.x, that.y, radius, color, x - dx, y - dy);
-          that.booms.push(frag);
+    }
+
+    _shapBoom() {
+      const that = this;
+      load_shape(ocas, octx, this.shape, function (dots) {
+        const dx = canvas.width / 2 - that.x;
+        const dy = canvas.height / 2 - that.y;
+        let color;
+        for (let i = 0; i < dots.length; i++) {
+          color = dots[i].color;
+          const x = dots[i].x;
+          const y = dots[i].y;
+          const radius = 1;
+          const frag = new Frag(that.x, that.y, radius, color, x - dx, y - dy);
+          that.frags.push(frag);
         }
       })
     }
   }
 
-  function putValue(canvas, context, ele, dr, callback) {
+
+  function color2rgba(color, alpha = 1) {
+    return "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
+  }
+
+  function load_shape(canvas, context, ele, callback) {
+    const SAMPLE_STRIDE = 4;
+
     context.clearRect(0, 0, canvas.width, canvas.height);
-    var img = new Image();
     if (ele.innerHTML.indexOf("img") >= 0) {
+      const img = new Image();
       img.src = ele.getElementsByTagName("img")[0].src;
+
       imgload(img, function () {
-        context.drawImage(img, canvas.width / 2 - img.width / 2, canvas.height / 2 - img.width / 2);
-        dots = getimgData(canvas, context, dr);
+        context.drawImage(img, canvas.width / 2 - img.width / 2, canvas.height / 2 - img.height / 2);
+        const dots = sample_image(canvas, context, SAMPLE_STRIDE);
         callback(dots);
       })
     } else {
-      var text = ele.innerHTML;
+      let text = ele.innerHTML;
+      const fontSize = 200;
       context.save();
-      var fontSize = 200;
       context.font = fontSize + "px 宋体 bold";
       context.textAlign = "center";
       context.textBaseline = "middle";
-      context.fillStyle = "rgba(" + parseInt(randrange(128, 255)) + "," + parseInt(randrange(128, 255)) + "," + parseInt(randrange(128, 255)) + " , 1)";
+      context.fillStyle = color2rgba(rand_color());
       context.fillText(text, canvas.width / 2, canvas.height / 2);
       context.restore();
-      dots = getimgData(canvas, context, dr);
+      const dots = sample_image(canvas, context, SAMPLE_STRIDE);
       callback(dots);
     }
   }
@@ -281,15 +280,15 @@
     }
   }
 
-  function getimgData(canvas, context, dr) {
-    var imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+  function sample_image(canvas, context, sample_stride) {
+    const imgData = context.getImageData(0, 0, canvas.width, canvas.height);
     context.clearRect(0, 0, canvas.width, canvas.height);
-    var dots = [];
-    for (var x = 0; x < imgData.width; x += dr) {
-      for (var y = 0; y < imgData.height; y += dr) {
-        var i = (y * imgData.width + x) * 4;
+    const dots = [];
+    for (let x = 0; x < imgData.width; x += sample_stride) {
+      for (let y = 0; y < imgData.height; y += sample_stride) {
+        let i = (y * imgData.width + x) * 4;
         if (imgData.data[i + 3] > 128) {
-          var dot = {x: x, y: y, a: imgData.data[i], b: imgData.data[i + 1], c: imgData.data[i + 2]};
+          const dot = {x: x, y: y, color: {r: imgData.data[i], g: imgData.data[i + 1], b: imgData.data[i + 2]}};
           dots.push(dot);
         }
       }
@@ -297,74 +296,93 @@
     return dots;
   }
 
-  function randrange(a, b) {
+  function uniform(a, b) {
     return Math.random() * (b - a) + a;
   }
 
+  function randrange(min, max) {
+    return Math.floor(Math.random() * (max - min) + min);
+  }
 
-  var maxRadius = 2, stars = [];
+  function rand_choice(arr) {
+    return arr[Math.floor(randrange(0, arr.length))];
+  }
+
+  const STAR_MAX_RADIUS = 2;
 
   function drawBg() {
-    for (var i = 0; i < 100; i++) {
-      var r = Math.random() * maxRadius;
-      var x = Math.random() * canvas.width;
-      var y = Math.random() * 2 * canvas.height - canvas.height;
-      var star = new Star(x, y, r);
+    for (let i = 0; i < 20; i++) {
+      const r = Math.random() * STAR_MAX_RADIUS;
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const star = new Star(x, y, r);
       stars.push(star);
       star.paint()
     }
-
   }
 
-  var Star = function (x, y, r) {
-    this.x = x;
-    this.y = y;
-    this.r = r;
+  function generateStars(f) {
+    const wH = window.innerHeight;
+    const wW = window.innerWidth;
+    for (let e = 0; e < f; e++) {
+      let d = document.createElement("div");
+      d.className = e % 20 === 0 ? "star star--big" : e % 9 === 0 ? "star star--medium" : "star";
+      d.setAttribute("style", "top:" + Math.round(Math.random() * wH) + "px;left:" + Math.round(Math.random() * wW) + "px;animation-duration:" + (Math.round(Math.random() * 3000) + 3000) + "ms;animation-delay:" + Math.round(Math.random() * 3000) + "ms;");
+      document.body.appendChild(d)
+    }
   }
-  Star.prototype = {
-    paint: function () {
+
+  class Star {
+    constructor(x, y, r) {
+      this.x = x;
+      this.y = y;
+      this.r = r;
+    }
+
+    paint() {
       ctx.save();
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
-      ctx.fillStyle = "rgba(255,255,255," + this.r + ")";
+      ctx.fillStyle = "rgba(255,255,255," + this.r / STAR_MAX_RADIUS + ")";
       ctx.fill();
       ctx.restore();
     }
   }
 
-  var focallength = 250;
-  var Frag = function (centerX, centerY, radius, color, tx, ty) {
-    this.tx = tx;
-    this.ty = ty;
-    this.x = centerX;
-    this.y = centerY;
-    this.dead = false;
-    this.centerX = centerX;
-    this.centerY = centerY;
-    this.radius = radius;
-    this.color = color;
-  }
+  class Frag {
+    constructor(centerX, centerY, radius, color, tx, ty) {
+      this.tx = tx; // target pos
+      this.ty = ty;
+      this.x = centerX; // current pos
+      this.y = centerY;
+      this.dead = false;
+      this.radius = radius;
+      this.color = color;
+    }
 
-  Frag.prototype = {
-    paint: function () {
+    paint() {
       ctx.save();
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-      ctx.fillStyle = "rgba(" + this.color.a + "," + this.color.b + "," + this.color.c + ",1)";
+      ctx.fillStyle = color2rgba(this.color);
       ctx.fill()
       ctx.restore();
-    },
-    moveTo: function (index) {
-      this.ty = this.ty + 0.3;
-      var dx = this.tx - this.x, dy = this.ty - this.y;
-      this.x = Math.abs(dx) < 0.1 ? this.tx : (this.x + dx * 0.1);
-      this.y = Math.abs(dy) < 0.1 ? this.ty : (this.y + dy * 0.1);
-      if (dx === 0 && Math.abs(dy) <= 80) {
+    }
+
+    moveTo() {
+      this.ty = this.ty + 0.3; // update target pos
+      // P Control
+      const dx = this.tx - this.x; // difference
+      const dy = this.ty - this.y;
+      this.x = Math.abs(dx) < 0.05 ? this.tx : (this.x + dx * 0.05);
+      this.y = Math.abs(dy) < 0.05 ? this.ty : (this.y + dy * 0.05);
+      if (Math.abs(dx) <= 0.05 && Math.abs(dy) <= 70) {
         this.dead = true;
       }
       this.paint();
     }
   }
+
 </script>
 
 </body>
