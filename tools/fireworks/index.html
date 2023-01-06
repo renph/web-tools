@@ -10,8 +10,8 @@
 <body>
 
 <div style="height:700px;overflow:hidden;">
-
-  <canvas id='cas' style="background-color:rgba(0,5,24,1);">浏览器不支持canvas</canvas>
+  <div class="star comet"></div>
+  <canvas id='cas' style="background-color:rgba(0,5,24,1); ">浏览器不支持canvas</canvas>
   <div class="city"><img src="img/city.png" alt=""/></div>
   <img src="img/moon.png" alt="" id="moon" style="visibility: hidden;"/>
   <div style="display:none">
@@ -19,7 +19,7 @@
     <div class="shape">
       <img src="img/heart.png">
     </div>
-    <div class="shape">合家幸福</div>
+    <div class="shape">阖家幸福</div>
     <div class="shape">
       <img src="img/heart.png">
     </div>
@@ -31,15 +31,29 @@
 </div>
 
 <script>
+  const root = document.documentElement;
+  window.setInterval(() => { // change comet position periodically
+    root.style.setProperty('--comet-pos', randrange(10, 90) + "%");
+  }, 5900);
   var canvas = document.getElementById("cas");
   var ocas = document.createElement("canvas");
-  var octx = ocas.getContext("2d");
-  var ctx = canvas.getContext("2d");
+  var octx = ocas.getContext("2d", {willReadFrequently: true});
+  var ctx = canvas.getContext("2d", {willReadFrequently: true});
+
   ocas.width = canvas.width = window.innerWidth;
-  ocas.height = canvas.height = 700;
+  ocas.height = canvas.height = window.innerHeight;
+
   var bigbooms = [];
   var stars = [];
   let lastTime;
+
+  // window.addEventListener("resize", resizeCanvas, false);
+  //
+  // function resizeCanvas() {
+  //    canvas.width = window.innerWidth;
+  //    canvas.height = window.innerHeight;
+  // }
+  // resizeCanvas();
 
   window.onload = function () {
     generateStars(50);
@@ -54,7 +68,7 @@
       || window.oRequestAnimationFrame
       || window.msRequestAnimationFrame
       || function (callback) {
-        window.setTimeout(callback, 1000 / 60);
+        window.setTimeout(callback, 1000 / 50);
       };
 
   function animate() {
@@ -64,7 +78,7 @@
     ctx.restore();
 
     const newTime = new Date();
-    if (newTime - lastTime > 500 + (window.innerHeight - 767) / 2) {
+    if (bigbooms.length < 10 && (newTime - lastTime > 400 )) {
 
       if (Math.random() > 0.06) {
         const x = randrange(canvas.width / 5, canvas.width * 4 / 5);
@@ -173,7 +187,7 @@
     }
 
     _move() {
-      var dx = this.boomArea.x - this.x, dy = this.boomArea.y - this.y;
+      let dx = this.boomArea.x - this.x, dy = this.boomArea.y - this.y;
       this.x = this.x + dx * 0.01;
       this.y = this.y + dy * 0.01;
 
@@ -198,7 +212,7 @@
     }
 
     _boom() {
-      var fragNum = randrange(30, 200);
+      const fragNum = randrange(90, 200);
       const style = Math.random() >= 0.5 ? 1 : 2;
       let color;
       if (style === 1) {
@@ -237,7 +251,6 @@
     }
   }
 
-
   function color2rgba(color, alpha = 1) {
     return "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
   }
@@ -257,7 +270,8 @@
       })
     } else {
       let text = ele.innerHTML;
-      const fontSize = 200;
+      // font size should be adaptive to screen size
+      const fontSize = Math.min(200, Math.floor(window.innerWidth / (text.length + 1)));
       context.save();
       context.font = fontSize + "px 宋体 bold";
       context.textAlign = "center";
@@ -374,9 +388,9 @@
       // P Control
       const dx = this.tx - this.x; // difference
       const dy = this.ty - this.y;
-      this.x = Math.abs(dx) < 0.05 ? this.tx : (this.x + dx * 0.05);
-      this.y = Math.abs(dy) < 0.05 ? this.ty : (this.y + dy * 0.05);
-      if (Math.abs(dx) <= 0.05 && Math.abs(dy) <= 70) {
+      this.x = Math.abs(dx) < 0.1 ? this.tx : (this.x + dx * 0.1);
+      this.y = Math.abs(dy) < 0.1 ? this.ty : (this.y + dy * 0.1);
+      if (Math.abs(dx) <= 0.1 && Math.abs(dy) <= 90) {
         this.dead = true;
       }
       this.paint();
