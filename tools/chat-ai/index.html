@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>AI在线/Chat with AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-body">
+<h1 class="text-center">AI在线/Chat with AI</h1>
+<div class="container">
+  <div class="row-cols-lg-2 mx-auto">
+    <form class="px-5 mb-3" action="">
+      <div class="form-group mb-3">
+        <label for="api-key">OpenAI API Key</label>
+        <input id="api-key" name="api-key" type="text" aria-describedby="api-keyHelpBlock" required="required"
+               class="form-control">
+        <span id="api-keyHelpBlock" class="form-text text-muted">Find your OpenAI API Key</span>
+      </div>
+      <div class="form-group mb-3">
+        <label for="max_tokens">最大输出字数 / Max Tokens</label>
+        <input type="number" id="max_tokens" aria-describedby="max-tokensHelpBlock" value="500" min="500" max="3000"
+               step="100"
+               class="form-control"/>
+        <span id="max-tokensHelpBlock" class="form-text text-muted">模型最大输出字数 16-3000</span>
+      </div>
+      <div class="form-group mb-3">
+        <label for="temperature">创造性 / Creativeness</label>
+        <input type="number" id="temperature" aria-describedby="temperatureHelpBlock" value="0.7" min="0" max="1"
+               step="0.05" class="form-control"/>
+        <span id="temperatureHelpBlock"
+              class="form-text text-muted">模型创造性，已有定论的话题设置为0，需要创造力的话题设置为0.9</span>
+      </div>
+      <div class="form-group mb-3">
+        <label for="select_model">选择AI模型 / Select Model</label>
+        <div>
+          <select id="select_model" name="select" required="required" class="custom-select">
+            <option value="text-davinci-003">text-davinci-003</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group mb-3">
+        <label for="prompt">输入你的提示词 / Prompt</label>
+        <textarea id="prompt" name="textarea" cols="40" rows="9" class="form-control"
+                  placeholder="请介绍一下自己"></textarea>
+      </div>
+      <div class="form-group mb-3">
+        <input value="Submit" type="button" class="btn btn-primary" onclick="completeSentence()"/>
+      </div>
+
+      <div id="complete" class="form-group rounded-2 border border-1 border-info" style="min-height: 3em"></div>
+    </form>
+
+  </div>
+
+</div>
+
+
+<script>
+  function completeSentence() {
+    document.getElementById("complete").innerHTML = "回复中...";
+
+    let API_KEY = document.getElementById("api-key").value;
+    let MODEL = document.getElementById("select_model").value;
+    let PROMPT = document.getElementById("prompt").value;
+    let MAX_TOKENS = document.getElementById("max_tokens").valueAsNumber;
+    let TEMPERATURE = document.getElementById("temperature").valueAsNumber;
+
+    const API = 'https://api.openai.com/v1/completions';
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + API_KEY
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        prompt: PROMPT,
+        max_tokens: MAX_TOKENS,
+        temperature: TEMPERATURE
+      }),
+    };
+    fetch(API, options)
+        .then(response => response.json())
+        .then(resp => {
+          console.log(resp);
+          document.getElementById("complete").innerHTML = resp.choices[0].text;
+        });
+  }
+</script>
+
+
+</body>
+</html>
