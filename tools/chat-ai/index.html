@@ -12,15 +12,14 @@
     <form class="px-5 mb-3" action="">
       <div class="form-group mb-3">
         <label for="api-key">OpenAI API Key</label>
-        <input id="api-key" name="api-key" type="text" aria-describedby="api-keyHelpBlock" required="required"
+        <input id="api-key" name="api-key" type="password" aria-describedby="api-keyHelpBlock" required="required"
                class="form-control">
         <span id="api-keyHelpBlock" class="form-text text-muted">Find your OpenAI API Key</span>
       </div>
       <div class="form-group mb-3">
         <label for="max_tokens">最大输出字数 / Max Tokens</label>
-        <input type="number" id="max_tokens" aria-describedby="max-tokensHelpBlock" value="500" min="500" max="3000"
-               step="100"
-               class="form-control"/>
+        <input type="number" id="max_tokens" aria-describedby="max-tokensHelpBlock" value="500" min="16" max="3000"
+               step="100" class="form-control"/>
         <span id="max-tokensHelpBlock" class="form-text text-muted">模型最大输出字数 16-3000</span>
       </div>
       <div class="form-group mb-3">
@@ -42,18 +41,111 @@
         <label for="prompt">输入你的提示词 / Prompt</label>
         <textarea id="prompt" name="textarea" cols="40" rows="9" class="form-control"
                   placeholder="请介绍一下自己"></textarea>
+        <div class="text-end"><span id="prompt-cnt">0</span> / 1000</div>
       </div>
       <div class="form-group mb-3">
         <input value="Submit" type="button" class="btn btn-primary" onclick="completeSentence()"/>
       </div>
 
-      <div id="complete" class="form-group rounded-2 border border-1 border-info" style="min-height: 3em"></div>
+      <div class="form-group">
+        <div class="d-flex align-items-center">
+          回复 / Reply
+          <span id="copy-to" class=" btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                 viewBox="0 0 16 16">
+              <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+              <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+            </svg>
+          </span>
+          <span class="ms-auto"><span id="reply-word-cnt">0</span> / 3000</span>
+        </div>
+        <div class=" rounded-2 border border-1 border-info p-2">
+          <p id="complete" class="text-wrap" style="min-height: 3em; white-space: pre-wrap;"></p>
+        </div>
+      </div>
     </form>
 
   </div>
 
 </div>
 
+<script>
+  // https://github.com/byn9826/words-count/blob/master/src/globalWordsCount.js
+  const DEFAULT_PUNCTUATION = [
+    ',', '，', '.', '。', ':', '：', ';', '；', '[', ']', '【', ']', '】', '{', '｛', '}', '｝',
+    '(', '（', ')', '）', '<', '《', '>', '》', '$', '￥', '!', '！', '?', '？', '~', '～',
+    "'", '’', '"', '“', '”',
+    '*', '/', '\\', '&', '%', '@', '#', '^', '、', '、', '、', '、'
+  ];
+
+  const EMPTY_RESULT = {
+    words: [],
+    count: 0
+  }
+
+  const wordsDetect = (text, config = {}) => {
+    if (!text) return EMPTY_RESULT;
+    let words = String(text);
+    if (words.trim() === '') return EMPTY_RESULT;
+    const punctuationReplacer = config.punctuationAsBreaker ? ' ' : '';
+    const defaultPunctuations = config.disableDefaultPunctuation ? [] : DEFAULT_PUNCTUATION;
+    const customizedPunctuations = config.punctuation || [];
+    const combinedPunctionations = defaultPunctuations.concat(customizedPunctuations);
+    // Remove punctuations or change to empty space
+    combinedPunctionations.forEach(function (punctuation) {
+      const punctuationReg = new RegExp('\\' + punctuation, 'g');
+      words = words.replace(punctuationReg, punctuationReplacer);
+    });
+    // Remove all kind of symbols
+    words = words.replace(/[\uFF00-\uFFEF\u2000-\u206F]/g, '');
+    // Format white space character
+    words = words.replace(/\s+/, ' ');
+    // Split words by white space (For European languages)
+    words = words.split(' ');
+    words = words.filter(word => word.trim());
+    // Match latin, cyrillic, Malayalam letters and numbers
+    const common = '(\\d+)|[a-zA-Z\u00C0-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u1E00-\u1EFF\u0400-\u04FF\u0500-\u052F\u0D00-\u0D7F]+|';
+    // Match Chinese Hànzì, the Japanese Kanji and the Korean Hanja
+    const cjk = '\u2E80-\u2EFF\u2F00-\u2FDF\u3000-\u303F\u31C0-\u31EF\u3200-\u32FF\u3300-\u33FF\u3400-\u3FFF\u4000-\u4DBF\u4E00-\u4FFF\u5000-\u5FFF\u6000-\u6FFF\u7000-\u7FFF\u8000-\u8FFF\u9000-\u9FFF\uF900-\uFAFF';
+    // Match Japanese Hiragana, Katakana, Rōmaji
+    const jp = '\u3040-\u309F\u30A0-\u30FF\u31F0-\u31FF\u3190-\u319F';
+    // Match Korean Hangul
+    const kr = '\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uAC00-\uAFFF\uB000-\uBFFF\uC000-\uCFFF\uD000-\uD7AF\uD7B0-\uD7FF';
+
+    const reg = new RegExp(
+        common + '[' + cjk + jp + kr + ']',
+        'g'
+    );
+    let detectedWords = [];
+    words.forEach(function (word) {
+      const carry = [];
+      let matched;
+      do {
+        matched = reg.exec(word);
+        if (matched) carry.push(matched[0])
+      } while (matched);
+      if (carry.length === 0) {
+        detectedWords.push(word);
+      } else {
+        detectedWords = detectedWords.concat(carry);
+      }
+    });
+    return {
+      words: detectedWords,
+      count: detectedWords.length
+    };
+  }
+
+  const wordsCount = (text, config = {}) => {
+    const {count} = wordsDetect(text, config);
+    return count;
+  }
+
+  const wordsSplit = (text, config = {}) => {
+    const {words} = wordsDetect(text, config);
+    return words;
+  }
+</script>
 
 <script>
   function completeSentence() {
@@ -84,8 +176,21 @@
         .then(resp => {
           console.log(resp);
           document.getElementById("complete").innerHTML = resp.choices[0].text;
+          document.getElementById("reply-word-cnt").innerText = resp.usage.completion_tokens;
         });
   }
+
+  document.getElementById("prompt").addEventListener("keyup", (ev) => {
+    let cnt = wordsCount(document.getElementById("prompt").value);
+    document.getElementById("prompt-cnt").innerText = cnt.toString();
+  })
+
+  document.getElementById('copy-to').addEventListener('click', function () {
+    const copyText = document.getElementById("complete").value;
+    navigator.clipboard.writeText(copyText).then(() => {
+      console.log("Copied to clipboard");
+    });
+  })
 </script>
 
 
